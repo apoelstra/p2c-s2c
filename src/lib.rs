@@ -1,9 +1,55 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
-//! Pay-to-Contract Sign-to-Contract
+//! Pay-to-Contract / Sign-to-Contract
+//!
+//! This library provides support for the Pay-to-Contract (P2C) construction, which
+//! transforms secp256k1 signing keys into cryptographic commitments to arbitrary
+//! data, as well as the Sign-to-Contract (S2C) construction, which does the same
+//! for ECDSA or BIP-0340 (Schnorr) signatures produced by the same keys.
+//!
+//! It is intended for use within
+//! [smart contracts unchained](https://zmnscpxj.github.io/bitcoin/unchained.html)
+//! in which S2C signatures are used with P2C keys. However, in principle the two
+//! constructions are indepedent and there is no need to use them together.
+//!
+//! # Example (BIP-0340 Signing)
+//!
+//! ```rust
+//! use p2c_s2c::secp256k1::{Secp256k1, SecretKey};
+//! use p2c_s2c::TweakedKeypair;
+//!
+//! let secp = Secp256k1::new();
+//! // Untweaked key
+//! let sk: SecretKey = "0101010101010101010101010101010101010101010101010101010101010101"
+//!     .parse()
+//!     .unwrap();
+//! let keypair = sk.keypair(&secp);
+//! // P2C-tweaked key
+//! let algo = "MyAlgorithm/v1"; // arbitrary string, used for domain separation
+//! let prog = b"this is a thing I'm committing in the pubkey";
+//! let tweaked_keypair = TweakedKeypair::new(&secp, &sk, None, algo, prog);
+//! let tweaked_pk = tweaked_keypair.to_public_key();
+//! // Can verify P2C commitment.
+//! assert!(tweaked_pk.verify_commitment(&secp, &keypair.public_key(), algo, prog));
+//! // S2C-tweaked signature
+//! let wit = b"this is a thing I'm committing in the signature";
+//! let msg = b"this is the message I'm actually signing";
+//! let (sig, nonce) = tweaked_keypair.sign_schnorr(&secp, msg, algo, wit);
+//! // Signature verifies as a normal signature
+//! let (xonly, _parity) = tweaked_pk.as_public_key().x_only_public_key();
+//! secp.verify_schnorr(&sig, msg, &xonly)
+//!     .unwrap();
+//! // With original nonce, can also verify S2C commitment
+//! assert!(tweaked_pk.verify_schnorr_commitment(&secp, &sig, &nonce, algo, wit));
+//! ```
 
 mod hashes;
 mod signature;
+
+/// Re-export of the `bitcoin_hashes` crate.
+pub extern crate bitcoin_hashes;
+/// Re-export of the `secp256k1` crate.
+pub extern crate secp256k1;
 
 pub use hashes::{Pay2ContractHash, Sign2ContractHash, TweakHash as _};
 
@@ -15,6 +61,7 @@ use secp256k1::{
 
 use crate::signature::NonceFnData;
 
+/// A P2C-tweaked public key.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct TweakedPublicKey {
     inner: secp256k1::PublicKey,
@@ -123,7 +170,7 @@ impl TweakedKeypair {
         Self { seckey, pubkey }
     }
 
-    pub fn public_key(&self) -> TweakedPublicKey {
+    pub fn to_public_key(&self) -> TweakedPublicKey {
         TweakedPublicKey { inner: self.pubkey }
     }
 
@@ -227,7 +274,7 @@ mod tests {
         assert_eq!(tweaked_keypair_1, tweaked_keypair_2);
 
         let tweaked_pk = TweakedPublicKey::new(&secp, &keypair.public_key(), TEST_ALGO, prog);
-        assert_eq!(tweaked_keypair_1.public_key(), tweaked_pk);
+        assert_eq!(tweaked_keypair_1.to_public_key(), tweaked_pk);
 
         assert!(tweaked_pk.verify_commitment(&secp, &keypair.public_key(), TEST_ALGO, prog));
 
