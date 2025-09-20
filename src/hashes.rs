@@ -26,13 +26,9 @@ pub trait TweakHash: bitcoin_hashes::Hash<Bytes = [u8; 32]> + private::Sealed {
     /// The BIP-0340 tag usad for this hash.
     type HashTag: sha256t::Tag;
 
-    fn compute_tweak(
-        key: &secp256k1::PublicKey,
-        algo: &str,
-        data: &[u8],
-    ) -> Self {
-        use bitcoin_hashes::{HashEngine as _, sha256t::Tag as _};
-        
+    fn compute_tweak(key: &secp256k1::PublicKey, algo: &str, data: &[u8]) -> Self {
+        use bitcoin_hashes::{sha256t::Tag as _, HashEngine as _};
+
         assert!(
             algo.len() < 253,
             "algorithm length must be < 253 for now (got {}) (varint support not implemented yet)",
@@ -52,7 +48,7 @@ pub trait TweakHash: bitcoin_hashes::Hash<Bytes = [u8; 32]> + private::Sealed {
 
 mod private {
     use super::{Pay2ContractHash, Sign2ContractHash};
-    
+
     pub trait Sealed {}
     impl Sealed for Pay2ContractHash {}
     impl Sealed for Sign2ContractHash {}
