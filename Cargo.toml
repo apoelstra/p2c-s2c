@@ -11,6 +11,9 @@ rust-version = "1.74.0"
 bitcoin_hashes = { version =  "0.16.0", default-features = false }
 secp256k1 = { version = "0.31.1", default-features = false, features = [ "alloc" ] }
 
+[lints.rust]
+missing_docs = "warn"
+
 [lints.clippy]
 # Exclude lints we don't think are valuable.
 needless_question_mark = "allow" # https://github.com/rust-bitcoin/rust-bitcoin/pull/2134

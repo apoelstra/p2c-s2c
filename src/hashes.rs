@@ -25,6 +25,7 @@ pub trait TweakHash: bitcoin_hashes::Hash<Bytes = [u8; 32]> + private::Sealed {
     /// The BIP-0340 tag usad for this hash.
     type HashTag: sha256t::Tag;
 
+    /// Computes the tweak that should be added to a given public key to obtain a tweaked public key.
     fn compute_tweak(key: &secp256k1::PublicKey, algo: &str, data: &[u8]) -> Self {
         use bitcoin_hashes::{sha256t::Tag as _, HashEngine as _};
 

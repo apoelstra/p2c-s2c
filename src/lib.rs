@@ -68,6 +68,7 @@ pub struct TweakedPublicKey {
 }
 
 impl TweakedPublicKey {
+    /// Tweaks a [`PublicKey`] using P2C to create a new [`TweakedPublicKey`].
     pub fn new<C: Verification>(
         secp: &Secp256k1<C>,
         untweaked_key: &PublicKey,
@@ -84,6 +85,8 @@ impl TweakedPublicKey {
         }
     }
 
+    /// Verifies that this [`TweakedPublicKey`] was created with a specific untweaked key,
+    /// algorithm string, and commitment data.
     pub fn verify_commitment<C: Verification>(
         &self,
         secp: &Secp256k1<C>,
@@ -94,6 +97,8 @@ impl TweakedPublicKey {
         *self == Self::new(secp, untweaked_key, algo, data)
     }
 
+    /// Verifies that an ECDSA signature created with this key has a S2C commitment with the
+    /// specified untweaked nonce, algorithm and data.
     pub fn verify_ecdsa_commitment<C: Verification>(
         &self,
         secp: &Secp256k1<C>,
@@ -115,6 +120,8 @@ impl TweakedPublicKey {
         nonce_ser[1..] == sig_ser[..32]
     }
 
+    /// Verifies that a BIP-0340 (Schnorr) signature created with this key has a S2C commitment
+    /// with the specified untweaked nonce, algorithm and data.
     pub fn verify_schnorr_commitment<C: Verification>(
         &self,
         secp: &Secp256k1<C>,
@@ -136,11 +143,20 @@ impl TweakedPublicKey {
         nonce_ser[1..] == sig_ser[..32]
     }
 
+    /// Interprets the tweaked public key as an ordinare [`PublicKey`] for use with signing
+    /// or verification algorithms.
+    pub fn to_public_key(&self) -> PublicKey {
+        self.inner
+    }
+
+    /// Interprets the tweaked public key as an ordinare [`PublicKey`] for use with signing
+    /// or verification algorithms.
     pub fn as_public_key(&self) -> &PublicKey {
         &self.inner
     }
 }
 
+/// A P2C-tweaked keypair (public and secret key).
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TweakedKeypair {
     seckey: SecretKey,
@@ -148,6 +164,11 @@ pub struct TweakedKeypair {
 }
 
 impl TweakedKeypair {
+    /// Tweaks a [`SecretKey`] using P2C to create a new [`TweakedKeypair`].
+    ///
+    /// If you know the [`PublicKey`] corresponding to the secret key, you may provide it
+    /// as the `untweaked_pubkey` to save recomputing it. However, if you provide an
+    /// incorrect public key here, your signatures and commitments will be invalid!
     pub fn new<C: Signing + Verification>(
         secp: &Secp256k1<C>,
         untweaked_key: &SecretKey,
@@ -170,10 +191,20 @@ impl TweakedKeypair {
         Self { seckey, pubkey }
     }
 
+    /// A reference to the tweaked secret key within this keypair.
+    pub fn as_secret_key(&self) -> &SecretKey {
+        &self.seckey
+    }
+
+    /// The public part of the keypair.
+    ///
+    /// This returns a [`TweakedPublicKey`]; if you want a [`PublicKey`], you
+    /// must call `to_public_key` again on the returned value.
     pub fn to_public_key(&self) -> TweakedPublicKey {
         TweakedPublicKey { inner: self.pubkey }
     }
 
+    /// Produces an ECDSA signature which S2C-commits to the given data.
     pub fn sign_ecdsa<C: Signing + Verification>(
         &self,
         secp: &Secp256k1<C>,
@@ -206,6 +237,7 @@ impl TweakedKeypair {
         }
     }
 
+    /// Produces an BIP-0340 (Schnorr) signature which S2C-commits to the given data.
     pub fn sign_schnorr<C: Signing + Verification>(
         &self,
         secp: &Secp256k1<C>,
