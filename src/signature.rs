@@ -66,7 +66,7 @@ pub unsafe extern "C" fn s2c_ecdsa_nonce_fn<C: secp256k1::Signing + secp256k1::V
     nonce32.copy_from_slice(&tweaked_sk.secret_bytes());
     data.original_nonce = Some(untweaked_pubkey);
 
-    return 1;
+    1 // return success
 }
 
 pub unsafe extern "C" fn s2c_schnorr_nonce_fn<C: secp256k1::Signing + secp256k1::Verification>(
@@ -117,5 +117,5 @@ pub unsafe extern "C" fn s2c_schnorr_nonce_fn<C: secp256k1::Signing + secp256k1:
     nonce32.copy_from_slice(&tweaked_sk.secret_bytes());
     data.original_nonce = Some(untweaked_pubkey);
 
-    return 1;
+    1 // return success
 }

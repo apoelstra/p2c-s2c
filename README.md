@@ -15,7 +15,7 @@ correct operation.
 
 ## MSRV
 
-This library should compile with any combination of feature flags on **Rust 1.63.0**.
+This library should compile with any combination of feature flags on **Rust 1.74.0**.
 
 ## Contributing
 

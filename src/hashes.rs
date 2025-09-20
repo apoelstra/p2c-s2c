@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 use bitcoin_hashes::{hash_newtype, sha256t, sha256t_tag};
-use secp256k1;
 
 sha256t_tag! {
     /// Tag used for in tagged hash for key tweaking.
@@ -34,9 +33,10 @@ pub trait TweakHash: bitcoin_hashes::Hash<Bytes = [u8; 32]> + private::Sealed {
             "algorithm length must be < 253 for now (got {}) (varint support not implemented yet)",
             algo.len(),
         );
+        let algo_len_u8 = u8::try_from(algo.len()).expect("see above assertion");
 
         let mut eng = Self::HashTag::engine();
-        eng.input(core::slice::from_ref(&(algo.len() as u8))); // cast OK, see check above
+        eng.input(core::slice::from_ref(&algo_len_u8));
         eng.input(algo.as_bytes());
         eng.input(&key.serialize());
         eng.input(data); // no length prefix OK, since this is the last field

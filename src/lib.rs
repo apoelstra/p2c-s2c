@@ -79,7 +79,7 @@ impl TweakedPublicKey {
         let tweak_sc = Scalar::from_be_bytes(tweak_bytes).expect("cryptographically unreachable");
         Self {
             inner: untweaked_key
-                .add_exp_tweak(&secp, &tweak_sc)
+                .add_exp_tweak(secp, &tweak_sc)
                 .expect("cryptographically unreachable"),
         }
     }
@@ -105,14 +105,14 @@ impl TweakedPublicKey {
         let sig_ser = sig.serialize_compact();
 
         let tweak_bytes =
-            crate::Sign2ContractHash::compute_tweak(&untweaked_nonce, algo, data).to_byte_array();
+            crate::Sign2ContractHash::compute_tweak(untweaked_nonce, algo, data).to_byte_array();
         let tweak_sc = Scalar::from_be_bytes(tweak_bytes).expect("cryptographically unreachable");
         let tweaked_nonce = untweaked_nonce
             .add_exp_tweak(secp, &tweak_sc)
             .expect("cryptographically unreachable");
         let nonce_ser = tweaked_nonce.serialize();
 
-        &nonce_ser[1..] == &sig_ser[..32]
+        nonce_ser[1..] == sig_ser[..32]
     }
 
     pub fn verify_schnorr_commitment<C: Verification>(
@@ -126,14 +126,14 @@ impl TweakedPublicKey {
         let sig_ser = sig.to_byte_array();
 
         let tweak_bytes =
-            crate::Sign2ContractHash::compute_tweak(&untweaked_nonce, algo, data).to_byte_array();
+            crate::Sign2ContractHash::compute_tweak(untweaked_nonce, algo, data).to_byte_array();
         let tweak_sc = Scalar::from_be_bytes(tweak_bytes).expect("cryptographically unreachable");
         let tweaked_nonce = untweaked_nonce
             .add_exp_tweak(secp, &tweak_sc)
             .expect("cryptographically unreachable");
         let nonce_ser = tweaked_nonce.serialize();
 
-        &nonce_ser[1..] == &sig_ser[..32]
+        nonce_ser[1..] == sig_ser[..32]
     }
 
     pub fn as_public_key(&self) -> &PublicKey {
@@ -164,7 +164,7 @@ impl TweakedKeypair {
             .add_tweak(&tweak_sc)
             .expect("cryptographically unreachable");
         let pubkey = untweaked_pubkey
-            .add_exp_tweak(&secp, &tweak_sc)
+            .add_exp_tweak(secp, &tweak_sc)
             .expect("cryptographically unreachable");
         debug_assert_eq!(seckey.public_key(secp), pubkey,);
         Self { seckey, pubkey }
@@ -199,7 +199,7 @@ impl TweakedKeypair {
                     msg.as_c_ptr(),
                     self.seckey.as_c_ptr(),
                     Some(crate::signature::s2c_ecdsa_nonce_fn::<C>),
-                    (&mut data as *mut NonceFnData<C>).cast::<core::ffi::c_void>(),
+                    core::ptr::addr_of_mut!(data).cast(),
                 ) == 1
             );
             (ret.into(), data.original_nonce.unwrap())
@@ -226,7 +226,7 @@ impl TweakedKeypair {
         let keypair = Keypair::from_secret_key(secp, &self.seckey);
         let ext_params = secp256k1::ffi::SchnorrSigExtraParams::new(
             Some(crate::signature::s2c_schnorr_nonce_fn::<C>),
-            (&mut data as *mut NonceFnData<C>).cast(),
+            core::ptr::addr_of_mut!(data).cast(),
         );
 
         unsafe {
