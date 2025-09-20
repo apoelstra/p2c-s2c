@@ -68,6 +68,27 @@ impl TweakedPublicKey {
         &nonce_ser[1..] == &sig_ser[..32]
     }
 
+    pub fn verify_schnorr_commitment<C: Verification>(
+        &self,
+        secp: &Secp256k1<C>,
+        sig: &schnorr::Signature,
+        untweaked_nonce: &PublicKey,
+        algo: &str,
+        data: &[u8],
+    ) -> bool {
+        let sig_ser = sig.to_byte_array();
+
+        let tweak_bytes =
+            crate::Sign2ContractHash::compute_tweak(&untweaked_nonce, algo, data).to_byte_array();
+        let tweak_sc = Scalar::from_be_bytes(tweak_bytes).expect("cryptographically unreachable");
+        let tweaked_nonce = untweaked_nonce
+            .add_exp_tweak(secp, &tweak_sc)
+            .expect("cryptographically unreachable");
+        let nonce_ser = tweaked_nonce.serialize();
+
+        &nonce_ser[1..] == &sig_ser[..32]
+    }
+
     pub fn as_public_key(&self) -> &PublicKey {
         &self.inner
     }
@@ -189,8 +210,7 @@ mod tests {
     const TEST_ALGO: &str = "TestAlgorithm/v001";
     const TEST_ALGO2: &str = "TestAlgorithm/v002";
 
-    #[test]
-    fn end_to_end_sign() {
+    fn test_data() -> (Secp256k1<secp256k1::All>, TweakedKeypair, TweakedPublicKey) {
         let secp = Secp256k1::new();
 
         // Public, untweaked key.
@@ -219,10 +239,18 @@ mod tests {
         let tweaked_keypair_3 = TweakedKeypair::new(&secp, &sk, None, TEST_ALGO2, prog2);
         assert_ne!(tweaked_keypair_1, tweaked_keypair_3);
 
+        // After having done above sanity checks, return the data so we can do a real test.
+        (secp, tweaked_keypair_1, tweaked_pk)
+    }
+
+    #[test]
+    fn end_to_end_ecdsa() {
+        let (secp, tweaked_keypair, tweaked_pk) = test_data();
+
         // Tweaked signature
         let wit = b"this is a thing I'm committing in the signature";
         let msg = Message::from_digest(*b"the sentence is a digest I swear");
-        let (sig, nonce) = tweaked_keypair_1.sign_ecdsa(&secp, msg, TEST_ALGO, wit);
+        let (sig, nonce) = tweaked_keypair.sign_ecdsa(&secp, msg, TEST_ALGO, wit);
 
         // Signature verifies as a normal signature
         secp.verify_ecdsa(msg, &sig, &tweaked_pk.as_public_key())
@@ -234,5 +262,27 @@ mod tests {
         let wit2 = b"this is NOT a thing I'm committing in the signature";
         assert!(!tweaked_pk.verify_ecdsa_commitment(&secp, &sig, &nonce, TEST_ALGO, wit2));
         assert!(!tweaked_pk.verify_ecdsa_commitment(&secp, &sig, &nonce, TEST_ALGO2, wit2));
+    }
+
+    #[test]
+    fn end_to_end_schnorr() {
+        let (secp, tweaked_keypair, tweaked_pk) = test_data();
+
+        // Tweaked signature
+        let wit = b"this is a thing I'm committing in the signature";
+        let msg = b"this is the message I'm actually signing";
+        let (sig, nonce) = tweaked_keypair.sign_schnorr(&secp, msg, TEST_ALGO, wit);
+
+        // Signature verifies as a normal signature
+        let (xonly, _parity) = tweaked_pk.as_public_key().x_only_public_key();
+        secp.verify_schnorr(&sig, msg, &xonly)
+            .unwrap();
+
+        // With original nonce, can also verify commitment
+        assert!(tweaked_pk.verify_schnorr_commitment(&secp, &sig, &nonce, TEST_ALGO, wit));
+        assert!(!tweaked_pk.verify_schnorr_commitment(&secp, &sig, &nonce, TEST_ALGO2, wit));
+        let wit2 = b"this is NOT a thing I'm committing in the signature";
+        assert!(!tweaked_pk.verify_schnorr_commitment(&secp, &sig, &nonce, TEST_ALGO, wit2));
+        assert!(!tweaked_pk.verify_schnorr_commitment(&secp, &sig, &nonce, TEST_ALGO2, wit2));
     }
 }
