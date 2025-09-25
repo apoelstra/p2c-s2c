@@ -25,6 +25,11 @@ sha256t_tag! {
     pub struct Sign2ContractTag = hash_str("P2C-S2C/S/1.0");
 }
 
+sha256t_tag! {
+    /// Tag used for in tagged hash for key tweaking for full keys.
+    pub struct TapTweakTag = hash_str("TapTweak");
+}
+
 hash_newtype! {
     /// Tagged hash used for key tweaking for full keys.
     #[derive(Debug)]
@@ -41,6 +46,13 @@ hash_newtype! {
     /// Tagged hash used for nonce tweaking for BIP-0340 (Schnorr) signatures.
     #[derive(Debug)]
     pub struct Sign2ContractHash(sha256t::Hash<Sign2ContractTag>);
+
+    /// Tagged hash for Taproot outputs.
+    ///
+    /// This is identical to the type of the same name in rust-bitcoin, but has
+    /// a slightly different API for use in this crate.
+    #[derive(Debug)]
+    pub struct TapTweakHash(sha256t::Hash<TapTweakTag>);
 }
 
 /// A trait describing a hash that can be used to tweak a point (either a public
@@ -122,4 +134,52 @@ impl TweakHash for Sign2ContractHash {
 impl TweakHash for Sign2ContractFullHash {
     type HashTag = Sign2ContractFullTag;
     type AllowedKeys = Full;
+}
+
+impl TweakHash for TapTweakHash {
+    type HashTag = TapTweakTag;
+    type AllowedKeys = XOnly;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use crate::TweakedKey;
+    
+    use secp256k1::XOnlyPublicKey;
+    
+    #[test]
+    #[rustfmt::skip]
+    fn taproot() {
+        /* Computable as
+        let dummy_hash = bitcoin::TapNodeHash::from_script(
+            bitcoin::Script::new(),
+            bitcoin::taproot::LeafVersion::TapScript,
+        );
+        */
+        let dummy_hash = [
+            0x83, 0xd9, 0x56, 0xa5, 0xb3, 0x61, 0x09, 0xf8,
+            0xf6, 0x67, 0xaa, 0x9b, 0x36, 0x6e, 0x84, 0x79,
+            0x94, 0x2e, 0x32, 0x39, 0x64, 0x55, 0xb5, 0xf4,
+            0x3b, 0x6d, 0xf9, 0x17, 0x76, 0x8e, 0x4d, 0x45,
+        ];
+
+        let untweaked: XOnlyPublicKey = "1112131405060708010203040506070801020304050607080102030405060708".parse().unwrap();
+        let p2c_tweaked = TweakedKey::<_, TapTweakHash>::new(&untweaked, &dummy_hash);
+        assert_eq!(
+            p2c_tweaked.as_inner().serialize(),
+            [
+                0x1c, 0xf7, 0xe5, 0x0f, 0x0b, 0xbf, 0x9a, 0x05,
+                0xb1, 0x2f, 0x09, 0x71, 0x5d, 0x4f, 0x31, 0x4a,
+                0x6f, 0xa9, 0x4c, 0xc7, 0xe5, 0xcb, 0xf4, 0x76,
+                0xf9, 0xeb, 0x1d, 0x01, 0x4e, 0xf4, 0xac, 0xef,
+            ],
+        );
+
+        /* The same key can be computed from
+        let secp = secp256k1::Secp256k1::new();
+        let bitcoin_tweaked = bitcoin::taproot::TaprootSpendInfo::new_key_spend(&secp, untweaked, Some(bitcoin::TapNodeHash::from_byte_array(dummy_hash)));
+        */
+    }
 }
