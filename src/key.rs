@@ -2,15 +2,15 @@
 
 //! Tweakable Keys
 //!
-//! This module contains two traits, [`TweakableFullKey`] and [`TwekableXOnlyKey`].
-//! One or the other should be used depending on whether your application uses
-//! ECDSA signatures and full keys, or BIP-0340 (Schnorr) signatures and x-only
-//! keys.
+//! This module contains the [`TweakableKey`] trait, which is implemented for
+//! public keytypes and keypair types. The trait constrains each key type to
+//! be used either as a full key or an x-only key, and this library will
+//! ensure that tweaks are only computed with a hash constrained to the
+//! same key type.
 //!
-//! These traits are substantially the same (and duplicate much of their code),
-//! but they must be separate because the various key types in use support one
-//! or both traits, and Rust [lacks the higher-kinded type support](https://hugopeters.me/posts/14/).
-//! needed to express this sensibly.
+//! This constraint is there to help maintain domain separation of hashes. Of
+//! course, it is possible to override these checks by converting keytypes
+//! and so on, but we highly discourage this.
 //!
 
 
@@ -21,7 +21,7 @@ use secp256k1::{ecdsa, schnorr};
 
 use crate::{AllowedKeysMarker, Full, XOnly, PubkeyTweakHash, TweakHash};
 
-/// A key that can be tweaked as a full public key.
+/// A public key or keypair that can be tweaked for use in P2C or S2C.
 pub trait TweakableKey {
     /// Whether to work with full keys and ECDSA signatures or x-only keys and
     /// BIP-0340 (Schnorr) signatures.
@@ -103,7 +103,12 @@ impl TweakableKey for (SecretKey, PublicKey) {
     }
 }
 
-/// A tweaked public key.
+/// A tweaked key.
+///
+/// This is a thin wrapper around a tweaked key, which ties the key to
+/// the hash algorithm used to tweak it. You can access the underlying
+/// key with [`Self::as_inner`] or by casting.
+#[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct TweakedKey<K, H> {
     inner: K,
@@ -128,7 +133,7 @@ where
     K: TweakableKey,
     H: TweakHash<AllowedKeys = K::AllowedKeys>,
 {
-    /// Tweaks a public key using P2C to create a new [`TweakedKey`].
+    /// Tweaks a public key to create a new [`TweakedKey`].
     pub fn new(
         untweaked_key: &K,
         data: &[u8],
@@ -138,7 +143,7 @@ where
         Self { inner, phantom: PhantomData }
     }
 
-    /// Verifies that this [`TweakedPublicKey`] was created with a specific untweaked key
+    /// Verifies that this [`TweakedKey`] was created with a specific untweaked key
     /// and commitment data.
     pub fn verify_key_commitment(
         &self,

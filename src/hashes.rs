@@ -58,15 +58,14 @@ hash_newtype! {
 /// A trait describing a hash that can be used to tweak a point (either a public
 /// key or a signature nonce) in this library.
 ///
-/// Using this trait, you can tweak public keys or signatures independently. If
-/// you want to use both features together, you probably want to use a public key
-/// which implements the [`PubkeyTweakHash`] trait.
+/// Using this trait, you can tweak public keys or signatures. If you want to
+/// you want to tweak both, you probably want to use a hash which implements the
+/// [`PubkeyTweakHash`] trait, which ensures you are using a different domain-separated
+/// hash for your P2C commitments and your S2C commitments.
 ///
-/// This method provides a large number of utility methods. It is likely that you
-/// don't need to call any of them directly; instead, call the methods implemented
-/// on [`TweakedPublicKey`] or [`TweakedKeypair`]. In particular, many methods can
-/// be called which will panic if [`Self::AllowedKeys`] is the wrong value. This
-/// is because of a [longstanding bug in the Rust language](https://github.com/rust-lang/rust/issues/20041).
+/// You can use the [`Pay2ContractHash`] or [`Pay2ContractFullHash`] types for this
+/// purpose, which are fine for non-production uses, but for a real application you
+/// should define your own hash type.
 pub trait TweakHash: bitcoin_hashes::Hash<Bytes = [u8; 32]> {
     /// The BIP-0340 tag usad for this hash.
     type HashTag: sha256t::Tag;

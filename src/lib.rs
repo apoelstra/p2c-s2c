@@ -12,6 +12,19 @@
 //! in which S2C signatures are used with P2C keys. However, in principle the two
 //! constructions are indepedent and there is no need to use them together.
 //!
+//! The library provides three main tools:
+//!
+//! * The [`TweakedKey`] type which represents a public key or keypair to which a
+//!   P2C tweak has been applied;
+//! * The [`TweakableKey`] trait which allows ordinary key types to be tweaked to
+//!   construct a `TweakedKey`;
+//! * The [`TweakHash`] trait which defines which hash types can be used to compute
+//!   these tweaks.
+//!
+//! We have provided the [`Pay2ContractHash`] and [`Pay2ContractFullHash`] which
+//! implement the `TweakHash` trait, but for production uses, you should define
+//! your own hash.
+//!
 //! # Example (BIP-0340 Signing)
 //!
 //! ```rust
@@ -75,7 +88,7 @@ use secp256k1::{
 use crate::signature::NonceFnData;
 
 impl<H: TweakHash<AllowedKeys = XOnly>> TweakedKey<Keypair, H> {
-    /// Tweaks a [`SecretKey`] using P2C to create a new [`TweakedKeypair`].
+    /// Tweaks a [`SecretKey`] using P2C to create a new [`TweakedKey`]`<Keypair, _>`.
     ///
     /// If you are calling this method, there may be a more efficient way to factor
     /// your code to obtain a [`Keypair`] and to call [`Self::new`] instead.
@@ -92,7 +105,7 @@ impl<H: TweakHash<AllowedKeys = XOnly>> TweakedKey<Keypair, H> {
 
     /// The public part of the keypair.
     ///
-    /// This returns a [`TweakedKey`]; if you want a [`XOnlyPublicKey`], you
+    /// This returns another [`TweakedKey`]; if you want a [`XOnlyPublicKey`], you
     /// must call `as_inner` on the returned value.
     pub fn to_x_only_public_key(&self) -> TweakedKey<XOnlyPublicKey, H> {
         self.map_ref(|kp| kp.x_only_public_key().0)
@@ -144,7 +157,7 @@ impl<H: TweakHash<AllowedKeys = XOnly>> TweakedKey<Keypair, H> {
 impl<H: TweakHash<AllowedKeys = Full>> TweakedKey<(SecretKey, PublicKey), H> {
     /// The public part of the keypair.
     ///
-    /// This returns a [`TweakedKey`]; if you want a [`XOnlyPublicKey`], you
+    /// This returns a [`TweakedKey`]; if you want a [`PublicKey`], you
     /// must call `as_inner` on the returned value.
     pub fn to_public_key(&self) -> TweakedKey<PublicKey, H> {
         self.map_ref(|kp| kp.1)
