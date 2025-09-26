@@ -18,6 +18,8 @@ use core::marker::PhantomData;
 
 use secp256k1::{Secp256k1, PublicKey, XOnlyPublicKey, Keypair, SecretKey};
 use secp256k1::{ecdsa, schnorr};
+#[cfg(feature = "serde")]
+use secp256k1::serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{AllowedKeysMarker, Full, XOnly, PubkeyTweakHash, TweakHash};
 
@@ -188,3 +190,19 @@ where
     }
 }
 
+#[cfg(feature = "serde")]
+impl<K: Serialize, H> Serialize for TweakedKey<K, H> {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        self.inner.serialize(ser)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, K: Deserialize<'de>, H> Deserialize<'de> for TweakedKey<K, H> {
+    fn deserialize<D: Deserializer<'de>>(des: D) -> Result<Self, D::Error> {
+        Ok(Self {
+            inner: Deserialize::deserialize(des)?,
+            phantom: PhantomData,
+        })
+    }
+}

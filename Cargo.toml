@@ -1,11 +1,14 @@
 [package]
 name = "p2c-s2c"
-version = "0.1.0"
+version = "0.1.1"
 description = "Use sign-to-contract to BIP-0340-sign messages with a pay-to-contract tweaked key."
 authors = ["Andrew Poelstra <apoelstra@wpsoftware.net>"]
 license = "LGPL-3.0"
 edition = "2021"
 rust-version = "1.74.0"
+
+[features]
+serde = [ "secp256k1/serde" ]
 
 [dependencies]
 bitcoin_hashes = { version =  "0.16.0", default-features = false }
